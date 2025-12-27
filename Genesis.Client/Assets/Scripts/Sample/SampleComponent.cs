@@ -13,7 +13,7 @@ public class SampleComponent : MonoBehaviour
         {
             var channel = GrpcChannelx.ForAddress("http://localhost:5277");
             var client = MagicOnionClient.Create<IMyFirstService>(channel);
-            var result = await client.SumAsync(200, 400);
+            var result = await client.MoveForwardAsync(new Vector3(1, 2, 3));
             Debug.Log(result);
         }
         catch (Exception e)
