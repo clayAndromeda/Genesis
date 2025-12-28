@@ -693,36 +693,325 @@ protected override void OnInitialized()
 
 ---
 
+## フェーズ4: タグ機能（完了✅）
+
+### 1. TagService作成
+
+**場所**: `Genesis.Echos.Main/Services/TagService.cs`
+
+#### 実装メソッド
+- `GetAllTagsAsync()` - 全タグを取得（名前順）
+- `GetTagByIdAsync(int id)` - IDでタグを取得
+
+#### 実装コード
+```csharp
+public class TagService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<TagService> _logger;
+
+    public async Task<List<Tag>> GetAllTagsAsync()
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await context.Tags
+            .OrderBy(t => t.Name)
+            .ToListAsync();
+    }
+
+    public async Task<Tag?> GetTagByIdAsync(int id)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return await context.Tags
+            .FirstOrDefaultAsync(t => t.Id == id);
+    }
+}
+```
+
+### 2. PostServiceのタグ対応拡張
+
+**場所**: `Genesis.Echos.Main/Services/PostService.cs`
+
+#### 変更内容
+
+**GetAllPostsAsync - PostTagsとTagsをInclude**
+```csharp
+return await context.Posts
+    .Include(p => p.Author)
+    .Include(p => p.Likes)
+    .Include(p => p.PostTags)      // 追加
+        .ThenInclude(pt => pt.Tag) // 追加
+    .OrderByDescending(p => p.CreatedAt)
+    .ToListAsync();
+```
+
+**GetPostByIdAsync - PostTagsとTagsをInclude**
+```csharp
+return await context.Posts
+    .Include(p => p.Author)
+    .Include(p => p.Likes)
+        .ThenInclude(l => l.User)
+    .Include(p => p.Comments)
+        .ThenInclude(c => c.Author)
+    .Include(p => p.PostTags)      // 追加
+        .ThenInclude(pt => pt.Tag) // 追加
+    .FirstOrDefaultAsync(p => p.Id == id);
+```
+
+**CreatePostAsync - タグIDリスト対応**
+```csharp
+public async Task<Post> CreatePostAsync(Post post, List<int>? tagIds = null)
+{
+    post.CreatedAt = DateTime.UtcNow;
+    context.Posts.Add(post);
+    await context.SaveChangesAsync();
+
+    // タグを追加
+    if (tagIds != null && tagIds.Any())
+    {
+        foreach (var tagId in tagIds)
+        {
+            var postTag = new PostTag
+            {
+                PostId = post.Id,
+                TagId = tagId,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.PostTags.Add(postTag);
+        }
+        await context.SaveChangesAsync();
+    }
+
+    return post;
+}
+```
+
+**UpdatePostAsync - タグ更新処理追加**
+```csharp
+public async Task<bool> UpdatePostAsync(Post post, string currentUserId, List<int>? tagIds = null)
+{
+    // ... 既存の検証 ...
+
+    existingPost.Title = post.Title;
+    existingPost.Content = post.Content;
+    existingPost.UpdatedAt = DateTime.UtcNow;
+
+    // 既存のタグを削除
+    var existingPostTags = await context.PostTags
+        .Where(pt => pt.PostId == post.Id)
+        .ToListAsync();
+    context.PostTags.RemoveRange(existingPostTags);
+
+    // 新しいタグを追加
+    if (tagIds != null && tagIds.Any())
+    {
+        foreach (var tagId in tagIds)
+        {
+            var postTag = new PostTag
+            {
+                PostId = post.Id,
+                TagId = tagId,
+                CreatedAt = DateTime.UtcNow
+            };
+            context.PostTags.Add(postTag);
+        }
+    }
+
+    await context.SaveChangesAsync();
+    return true;
+}
+```
+
+### 3. TagBadgeコンポーネント作成
+
+**場所**: `Genesis.Echos.Main/Components/Shared/TagBadge.razor`
+
+#### 実装内容
+```razor
+<span class="badge me-1" style="background-color: @Color; color: white;">
+    @Name
+</span>
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Color { get; set; } = "#6c757d";
+}
+```
+
+#### 特徴
+- シンプルな再利用可能コンポーネント
+- タグの色をインラインスタイルで適用
+- Bootstrapの`badge`クラスを使用
+
+### 4. 投稿作成・編集ページにタグ選択追加
+
+#### 投稿作成ページ (`Components/Pages/Posts/Create.razor.cs`)
+
+**追加コード**:
+```csharp
+[Inject] private TagService TagService { get; set; } = default!;
+private List<Tag> availableTags = new();
+private List<int> selectedTagIds = new();
+
+protected override async Task OnInitializedAsync()
+{
+    availableTags = await TagService.GetAllTagsAsync();
+}
+
+private void ToggleTag(int tagId)
+{
+    if (selectedTagIds.Contains(tagId))
+        selectedTagIds.Remove(tagId);
+    else
+        selectedTagIds.Add(tagId);
+}
+
+// HandleValidSubmit内
+await PostService.CreatePostAsync(post, selectedTagIds);
+```
+
+**UI (`Components/Pages/Posts/Create.razor`)**:
+```razor
+<div class="mb-3">
+    <label class="form-label">タグ</label>
+    <div class="border rounded p-3">
+        @foreach (var tag in availableTags)
+        {
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="tag-@tag.Id"
+                       checked="@selectedTagIds.Contains(tag.Id)"
+                       @onchange="@(() => ToggleTag(tag.Id))" />
+                <label class="form-check-label" for="tag-@tag.Id">
+                    <TagBadge Name="@tag.Name" Color="@tag.Color" />
+                </label>
+            </div>
+        }
+    </div>
+</div>
+```
+
+#### 投稿編集ページ (`Components/Pages/Posts/Edit.razor.cs`)
+
+**追加コード**:
+```csharp
+[Inject] private TagService TagService { get; set; } = default!;
+private List<Tag> availableTags = new();
+private List<int> selectedTagIds = new();
+
+protected override async Task OnInitializedAsync()
+{
+    availableTags = await TagService.GetAllTagsAsync();
+    post = await PostService.GetPostByIdAsync(Id);
+
+    if (post != null && currentUserId == post.AuthorId)
+    {
+        isAuthor = true;
+        model.Title = post.Title;
+        model.Content = post.Content;
+        // 既存タグを選択状態にする
+        selectedTagIds = post.PostTags?.Select(pt => pt.TagId).ToList() ?? new List<int>();
+    }
+}
+
+// HandleValidSubmit内
+var success = await PostService.UpdatePostAsync(post, currentUserId, selectedTagIds);
+```
+
+**UI**: Create.razorと同様のチェックボックスUI
+
+### 5. 投稿一覧・詳細にタグ表示追加
+
+#### 投稿一覧ページ (`Components/Pages/Posts/Index.razor`)
+
+**追加コード**:
+```razor
+@if (post.PostTags != null && post.PostTags.Any())
+{
+    <div class="mb-2">
+        @foreach (var postTag in post.PostTags)
+        {
+            <TagBadge Name="@postTag.Tag.Name" Color="@postTag.Tag.Color" />
+        }
+    </div>
+}
+```
+
+#### 投稿詳細ページ (`Components/Pages/Posts/Detail.razor`)
+
+**追加コード**:
+```razor
+@if (post.PostTags != null && post.PostTags.Any())
+{
+    <div class="mb-3">
+        @foreach (var postTag in post.PostTags)
+        {
+            <TagBadge Name="@postTag.Tag.Name" Color="@postTag.Color" />
+        }
+    </div>
+}
+```
+
+### 6. Program.cs更新
+
+**追加内容**:
+```csharp
+builder.Services.AddScoped<TagService>();
+```
+
+### 7. ビルド結果
+
+```
+ビルドに成功しました。
+    0 個の警告
+    0 エラー
+
+成功!   -失敗:     0、合格:     1、スキップ:     0、合計:     1
+```
+
+### 8. 機能概要
+
+#### 実装された機能
+- ✅ タグ一覧取得機能（TagService）
+- ✅ 投稿作成時のタグ選択（複数選択可能）
+- ✅ 投稿編集時のタグ更新（既存タグの事前選択）
+- ✅ 投稿一覧でのタグ表示
+- ✅ 投稿詳細でのタグ表示
+- ✅ TagBadge再利用可能コンポーネント
+
+#### タグ更新の仕組み
+投稿編集時のタグ更新は「削除してから追加」パターンを採用:
+1. 既存のPostTagレコードを全削除
+2. 選択されたタグIDで新しいPostTagレコードを作成
+3. シンプルで理解しやすい実装
+
+---
+
 ## 次のステップ
 
-### フェーズ4: タグ機能（次の実装）
+### フェーズ5: アカウント作成機能（完了✅）
 
-**実装予定**:
+**実装内容**:
 
-1. **TagService作成**
-   - `GetAllTagsAsync()` - 全タグ取得
-   - `GetTagByIdAsync(int id)` - タグIDで取得
+1. **Register.razor/Register.razor.cs作成**
+   - アカウント新規登録ページ
+   - 全ユーザーにMemberロールを自動付与
+   - 登録後に自動ログイン
 
-2. **PostServiceのタグ対応**
-   - `CreatePostAsync`を拡張してタグIDリストを受け取る
-   - `UpdatePostAsync`でタグの更新処理（既存タグ削除 → 新規タグ追加）
-   - `GetAllPostsAsync`と`GetPostByIdAsync`でPostTagsとTagsをInclude
+2. **DbInitializer更新**
+   - テストアカウント作成処理を削除
+   - ロールとタグの初期化のみ実施
 
-3. **TagBadgeコンポーネント作成**
-   - タグ名と色を表示するバッジ
-   - Bootstrapの`badge`クラスを使用
-   - タグの色（#0d6efd等）を背景色に設定
+3. **認証UI改善**
+   - ログイン・登録ボタンをヘッダーに移動
+   - ログイン状態に応じた表示切り替え（MainLayout.razor）
+   - サイドバー（NavMenu）からログイン・登録リンクを削除
+   - ホームページの認証状態対応
 
-4. **投稿作成・編集ページにタグ選択追加**
-   - チェックボックスでタグ選択UI
-   - 複数タグ選択可能
-   - 選択されたタグをPostに関連付け
-
-5. **投稿一覧・詳細にタグ表示追加**
-   - 各投稿カードにTagBadgeを表示
-   - タグでフィルタリング機能（オプション）
-
-### フェーズ5: リーダー機能（将来）
+### フェーズ6: リーダー機能（将来）
 
 **実装予定**:
 

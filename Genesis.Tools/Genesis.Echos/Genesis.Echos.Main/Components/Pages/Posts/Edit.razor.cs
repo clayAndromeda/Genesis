@@ -10,6 +10,7 @@ namespace Genesis.Echos.Main.Components.Pages.Posts;
 public partial class Edit
 {
     [Inject] private PostService PostService { get; set; } = default!;
+    [Inject] private TagService TagService { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
@@ -23,11 +24,14 @@ public partial class Edit
     private bool isAuthor = false;
     private string? errorMessage;
     private string? currentUserId;
+    private List<Tag> availableTags = new();
+    private List<int> selectedTagIds = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
+            availableTags = await TagService.GetAllTagsAsync();
             post = await PostService.GetPostByIdAsync(Id);
 
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
@@ -38,6 +42,7 @@ public partial class Edit
                 isAuthor = true;
                 model.Title = post.Title;
                 model.Content = post.Content;
+                selectedTagIds = post.PostTags?.Select(pt => pt.TagId).ToList() ?? new List<int>();
             }
         }
         catch (Exception ex)
@@ -62,7 +67,7 @@ public partial class Edit
             post.Title = model.Title;
             post.Content = model.Content;
 
-            var success = await PostService.UpdatePostAsync(post, currentUserId);
+            var success = await PostService.UpdatePostAsync(post, currentUserId, selectedTagIds);
             if (success)
             {
                 Navigation.NavigateTo($"/posts/{Id}");
@@ -85,6 +90,18 @@ public partial class Edit
     private void Cancel()
     {
         Navigation.NavigateTo($"/posts/{Id}");
+    }
+
+    private void ToggleTag(int tagId)
+    {
+        if (selectedTagIds.Contains(tagId))
+        {
+            selectedTagIds.Remove(tagId);
+        }
+        else
+        {
+            selectedTagIds.Add(tagId);
+        }
     }
 
     public class PostModel

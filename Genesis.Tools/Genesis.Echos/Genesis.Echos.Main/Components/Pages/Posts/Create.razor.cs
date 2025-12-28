@@ -10,12 +10,20 @@ namespace Genesis.Echos.Main.Components.Pages.Posts;
 public partial class Create
 {
     [Inject] private PostService PostService { get; set; } = default!;
+    [Inject] private TagService TagService { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
     private PostModel model = new();
     private bool isSubmitting = false;
     private string? errorMessage;
+    private List<Tag> availableTags = new();
+    private List<int> selectedTagIds = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        availableTags = await TagService.GetAllTagsAsync();
+    }
 
     private async Task HandleValidSubmit()
     {
@@ -40,7 +48,7 @@ public partial class Create
                 AuthorId = userId
             };
 
-            await PostService.CreatePostAsync(post);
+            await PostService.CreatePostAsync(post, selectedTagIds);
             Navigation.NavigateTo("/posts");
         }
         catch (Exception ex)
@@ -56,6 +64,18 @@ public partial class Create
     private void Cancel()
     {
         Navigation.NavigateTo("/posts");
+    }
+
+    private void ToggleTag(int tagId)
+    {
+        if (selectedTagIds.Contains(tagId))
+        {
+            selectedTagIds.Remove(tagId);
+        }
+        else
+        {
+            selectedTagIds.Add(tagId);
+        }
     }
 
     public class PostModel

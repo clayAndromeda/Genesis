@@ -16,7 +16,7 @@ public class PostService
     }
 
     /// <summary>
-    /// すべての投稿を取得（作成者、いいね数を含む）
+    /// すべての投稿を取得（作成者、いいね数、タグを含む）
     /// </summary>
     public async Task<List<Post>> GetAllPostsAsync()
     {
@@ -27,6 +27,8 @@ public class PostService
             return await context.Posts
                 .Include(p => p.Author)
                 .Include(p => p.Likes)
+                .Include(p => p.PostTags)
+                .ThenInclude(pt => pt.Tag)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
         }
@@ -38,7 +40,7 @@ public class PostService
     }
 
     /// <summary>
-    /// IDで投稿を取得（作成者、いいね、コメントを含む）
+    /// IDで投稿を取得（作成者、いいね、コメント、タグを含む）
     /// </summary>
     public async Task<Post?> GetPostByIdAsync(int id)
     {
@@ -52,6 +54,8 @@ public class PostService
                 .ThenInclude(l => l.User)
                 .Include(p => p.Comments)
                 .ThenInclude(c => c.Author)
+                .Include(p => p.PostTags)
+                .ThenInclude(pt => pt.Tag)
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
         catch (Exception ex)
@@ -62,9 +66,9 @@ public class PostService
     }
 
     /// <summary>
-    /// 新しい投稿を作成
+    /// 新しい投稿を作成（タグIDリストを含む）
     /// </summary>
-    public async Task<Post> CreatePostAsync(Post post)
+    public async Task<Post> CreatePostAsync(Post post, List<int>? tagIds = null)
     {
         try
         {
@@ -74,7 +78,24 @@ public class PostService
             context.Posts.Add(post);
             await context.SaveChangesAsync();
 
-            _logger.LogInformation("Created post {PostId} by user {UserId}", post.Id, post.AuthorId);
+            // タグを追加
+            if (tagIds != null && tagIds.Any())
+            {
+                foreach (var tagId in tagIds)
+                {
+                    var postTag = new PostTag
+                    {
+                        PostId = post.Id,
+                        TagId = tagId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.PostTags.Add(postTag);
+                }
+                await context.SaveChangesAsync();
+            }
+
+            _logger.LogInformation("Created post {PostId} by user {UserId} with {TagCount} tags",
+                post.Id, post.AuthorId, tagIds?.Count ?? 0);
             return post;
         }
         catch (Exception ex)
@@ -85,9 +106,9 @@ public class PostService
     }
 
     /// <summary>
-    /// 投稿を更新（作成者のみ）
+    /// 投稿を更新（作成者のみ、タグIDリストを含む）
     /// </summary>
-    public async Task<bool> UpdatePostAsync(Post post, string currentUserId)
+    public async Task<bool> UpdatePostAsync(Post post, string currentUserId, List<int>? tagIds = null)
     {
         try
         {
@@ -112,8 +133,29 @@ public class PostService
             existingPost.Content = post.Content;
             existingPost.UpdatedAt = DateTime.UtcNow;
 
+            // 既存のタグを削除
+            var existingPostTags = await context.PostTags
+                .Where(pt => pt.PostId == post.Id)
+                .ToListAsync();
+            context.PostTags.RemoveRange(existingPostTags);
+
+            // 新しいタグを追加
+            if (tagIds != null && tagIds.Any())
+            {
+                foreach (var tagId in tagIds)
+                {
+                    var postTag = new PostTag
+                    {
+                        PostId = post.Id,
+                        TagId = tagId,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    context.PostTags.Add(postTag);
+                }
+            }
+
             await context.SaveChangesAsync();
-            _logger.LogInformation("Updated post {PostId}", post.Id);
+            _logger.LogInformation("Updated post {PostId} with {TagCount} tags", post.Id, tagIds?.Count ?? 0);
             return true;
         }
         catch (Exception ex)

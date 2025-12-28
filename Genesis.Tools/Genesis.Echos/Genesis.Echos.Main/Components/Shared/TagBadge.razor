@@ -1,0 +1,12 @@
+@* タグバッジコンポーネント *@
+<span class="badge me-1" style="background-color: @Color; color: white;">
+    @Name
+</span>
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Color { get; set; } = "#6c757d";
+}

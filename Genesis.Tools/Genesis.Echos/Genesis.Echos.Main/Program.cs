@@ -46,6 +46,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 // Add application services
 builder.Services.AddScoped<PostService>();
+builder.Services.AddScoped<TagService>();
 
 var app = builder.Build();
 

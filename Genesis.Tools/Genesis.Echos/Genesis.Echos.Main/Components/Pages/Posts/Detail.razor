@@ -56,6 +56,15 @@
                 </div>
             </div>
             <div class="card-body">
+                @if (post.PostTags != null && post.PostTags.Any())
+                {
+                    <div class="mb-3">
+                        @foreach (var postTag in post.PostTags)
+                        {
+                            <TagBadge Name="@postTag.Tag.Name" Color="@postTag.Tag.Color" />
+                        }
+                    </div>
+                }
                 <div class="post-content" style="white-space: pre-wrap;">@post.Content</div>
             </div>
             <div class="card-footer bg-transparent">

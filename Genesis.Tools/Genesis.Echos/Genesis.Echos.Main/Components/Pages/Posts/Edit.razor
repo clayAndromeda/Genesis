@@ -46,6 +46,23 @@
                                 <ValidationMessage For="@(() => model.Content)" class="text-danger" />
                             </div>
 
+                            <div class="mb-3">
+                                <label class="form-label">タグ</label>
+                                <div class="border rounded p-3">
+                                    @foreach (var tag in availableTags)
+                                    {
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="checkbox" id="tag-@tag.Id"
+                                                   checked="@selectedTagIds.Contains(tag.Id)"
+                                                   @onchange="@(() => ToggleTag(tag.Id))" />
+                                            <label class="form-check-label" for="tag-@tag.Id">
+                                                <TagBadge Name="@tag.Name" Color="@tag.Color" />
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
                             @if (!string.IsNullOrEmpty(errorMessage))
                             {
                                 <div class="alert alert-danger">
