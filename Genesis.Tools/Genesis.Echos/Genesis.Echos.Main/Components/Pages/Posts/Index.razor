@@ -1,0 +1,87 @@
+@page "/posts"
+@using Genesis.Echos.Domain.Entities
+@using Genesis.Echos.Main.Services
+@inject PostService PostService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>投稿一覧 - Genesis.Echos</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>投稿一覧</h1>
+        <a href="/posts/create" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> 新規投稿
+        </a>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">読み込み中...</span>
+            </div>
+        </div>
+    }
+    else if (posts == null || !posts.Any())
+    {
+        <div class="alert alert-info">
+            まだ投稿がありません。最初の投稿を作成してみましょう！
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var post in posts)
+            {
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="/posts/@post.Id" class="text-decoration-none text-dark">
+                                    @post.Title
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted small">
+                                @post.Content.Substring(0, Math.Min(100, post.Content.Length))@(post.Content.Length > 100 ? "..." : "")
+                            </p>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-person"></i> @post.Author.UserName
+                                </small>
+                                <LikeButton PostId="@post.Id" LikeCount="@post.Likes.Count" />
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                <i class="bi bi-calendar"></i> @post.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Post>? posts;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            posts = await PostService.GetAllPostsAsync();
+        }
+        catch (Exception ex)
+        {
+            // TODO: エラーハンドリング
+            Console.WriteLine($"Error loading posts: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

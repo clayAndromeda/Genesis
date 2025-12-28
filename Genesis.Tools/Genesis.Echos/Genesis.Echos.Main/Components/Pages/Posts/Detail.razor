@@ -1,0 +1,160 @@
+@page "/posts/{id:int}"
+@using Genesis.Echos.Domain.Entities
+@using Genesis.Echos.Main.Services
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject PostService PostService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>@(post?.Title ?? "投稿詳細") - Genesis.Echos</PageTitle>
+
+<div class="container mt-4">
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">読み込み中...</span>
+            </div>
+        </div>
+    }
+    else if (post == null)
+    {
+        <div class="alert alert-danger">
+            投稿が見つかりませんでした。
+        </div>
+        <a href="/posts" class="btn btn-secondary">投稿一覧に戻る</a>
+    }
+    else
+    {
+        <div class="card shadow">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h2 class="mb-2">@post.Title</h2>
+                        <div class="text-muted small">
+                            <i class="bi bi-person"></i> @post.Author.UserName
+                            <span class="mx-2">|</span>
+                            <i class="bi bi-calendar"></i> @post.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                            @if (post.UpdatedAt.HasValue)
+                            {
+                                <span class="mx-2">|</span>
+                                <i class="bi bi-pencil"></i> <text>更新 </text>@post.UpdatedAt.Value.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                            }
+                        </div>
+                    </div>
+                    <AuthorizeView>
+                        <Authorized>
+                            @if (IsAuthor(context.User))
+                            {
+                                <div class="btn-group">
+                                    <a href="/posts/@Id/edit" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i> 編集
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="DeletePost">
+                                        <i class="bi bi-trash"></i> 削除
+                                    </button>
+                                </div>
+                            }
+                        </Authorized>
+                    </AuthorizeView>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="post-content" style="white-space: pre-wrap;">@post.Content</div>
+            </div>
+            <div class="card-footer bg-transparent">
+                <div class="d-flex justify-content-between align-items-center">
+                    <LikeButton PostId="@post.Id" LikeCount="@post.Likes.Count" />
+                    <a href="/posts" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> 一覧に戻る
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        @if (post.Comments.Any())
+        {
+            <div class="card shadow mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">コメント (@post.Comments.Count)</h5>
+                </div>
+                <div class="card-body">
+                    @foreach (var comment in post.Comments.OrderBy(c => c.CreatedAt))
+                    {
+                        <div class="mb-3 pb-3 border-bottom">
+                            <div class="d-flex justify-content-between">
+                                <strong>@comment.Author.UserName</strong>
+                                <small class="text-muted">
+                                    @comment.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")
+                                </small>
+                            </div>
+                            <div class="mt-2" style="white-space: pre-wrap;">@comment.Content</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Post? post;
+    private bool isLoading = true;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            post = await PostService.GetPostByIdAsync(Id);
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading post: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private bool IsAuthor(ClaimsPrincipal user)
+    {
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return userId == post?.AuthorId;
+    }
+
+    private async Task DeletePost()
+    {
+        if (post == null || string.IsNullOrEmpty(currentUserId)) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "この投稿を削除しますか？");
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await PostService.DeletePostAsync(post.Id, currentUserId);
+            if (success)
+            {
+                Navigation.NavigateTo("/posts");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "投稿の削除に失敗しました。");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"エラーが発生しました: {ex.Message}");
+        }
+    }
+}

@@ -1,0 +1,139 @@
+@page "/Account/Login"
+@using Genesis.Echos.Domain.Entities
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+<PageTitle>ログイン - Genesis.Echos</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h3 class="mb-0 text-center">ログイン</h3>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="@model" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger" />
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">メールアドレス</label>
+                            <InputText id="email" class="form-control" @bind-Value="model.Email" placeholder="email@example.com" />
+                            <ValidationMessage For="@(() => model.Email)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">パスワード</label>
+                            <InputText type="password" id="password" class="form-control" @bind-Value="model.Password" />
+                            <ValidationMessage For="@(() => model.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="model.RememberMe" />
+                            <label class="form-check-label" for="rememberMe">
+                                ログイン状態を保持
+                            </label>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                @errorMessage
+                            </div>
+                        }
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                }
+                                ログイン
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <hr class="my-4" />
+
+                    <div class="text-center text-muted small">
+                        <p class="mb-1">テストアカウント:</p>
+                        <p class="mb-0">Leader: leader@echos.com / Leader123!</p>
+                        <p class="mb-0">Member: member@echos.com / Member123!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private LoginModel? model { get; set; }
+
+    private bool isSubmitting = false;
+    private string? errorMessage;
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized()
+    {
+        model ??= new();
+    }
+
+    private async Task HandleLogin()
+    {
+        if (model == null) return;
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = null;
+
+            var user = await UserManager.FindByEmailAsync(model.Email);
+            if (user == null)
+            {
+                errorMessage = "メールアドレスまたはパスワードが正しくありません。";
+                return;
+            }
+
+            var result = await SignInManager.PasswordSignInAsync(
+                user.UserName!,
+                model.Password,
+                model.RememberMe,
+                lockoutOnFailure: false);
+
+            if (result.Succeeded)
+            {
+                Navigation.NavigateTo(ReturnUrl ?? "/posts", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "メールアドレスまたはパスワードが正しくありません。";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"ログイン中にエラーが発生しました: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    public class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "メールアドレスは必須です")]
+        [System.ComponentModel.DataAnnotations.EmailAddress(ErrorMessage = "有効なメールアドレスを入力してください")]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "パスワードは必須です")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; }
+    }
+}

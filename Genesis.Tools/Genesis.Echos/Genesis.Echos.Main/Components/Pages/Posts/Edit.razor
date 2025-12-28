@@ -1,0 +1,168 @@
+@page "/posts/{id:int}/edit"
+@using Genesis.Echos.Domain.Entities
+@using Genesis.Echos.Main.Services
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject PostService PostService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>投稿を編集 - Genesis.Echos</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            @if (isLoading)
+            {
+                <div class="text-center">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">読み込み中...</span>
+                    </div>
+                </div>
+            }
+            else if (post == null || !isAuthor)
+            {
+                <div class="alert alert-danger">
+                    @(post == null ? "投稿が見つかりませんでした。" : "この投稿を編集する権限がありません。")
+                </div>
+                <a href="/posts" class="btn btn-secondary">投稿一覧に戻る</a>
+            }
+            else
+            {
+                <div class="card shadow">
+                    <div class="card-header">
+                        <h3 class="mb-0">投稿を編集</h3>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="@model" OnValidSubmit="HandleValidSubmit" FormName="EditPostForm">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger" />
+
+                            <div class="mb-3">
+                                <label for="title" class="form-label">タイトル <span class="text-danger">*</span></label>
+                                <InputText id="title" class="form-control" @bind-Value="model.Title" />
+                                <ValidationMessage For="@(() => model.Title)" class="text-danger" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="content" class="form-label">本文 <span class="text-danger">*</span></label>
+                                <InputTextArea id="content" class="form-control" @bind-Value="model.Content" rows="10" />
+                                <ValidationMessage For="@(() => model.Content)" class="text-danger" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">
+                                    @errorMessage
+                                </div>
+                            }
+
+                            <div class="d-flex justify-content-between">
+                                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                                    <i class="bi bi-x-circle"></i> キャンセル
+                                </button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                    @if (isSubmitting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    }
+                                    <i class="bi bi-check-circle"></i> 更新する
+                                </button>
+                            </div>
+                        </EditForm>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Post? post;
+    private PostModel model = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool isAuthor = false;
+    private string? errorMessage;
+    private string? currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            post = await PostService.GetPostByIdAsync(Id);
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            currentUserId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (post != null && currentUserId == post.AuthorId)
+            {
+                isAuthor = true;
+                model.Title = post.Title;
+                model.Content = post.Content;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"投稿の読み込み中にエラーが発生しました: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (post == null || string.IsNullOrEmpty(currentUserId)) return;
+
+        try
+        {
+            isSubmitting = true;
+            errorMessage = null;
+
+            post.Title = model.Title;
+            post.Content = model.Content;
+
+            var success = await PostService.UpdatePostAsync(post, currentUserId);
+            if (success)
+            {
+                Navigation.NavigateTo($"/posts/{Id}");
+            }
+            else
+            {
+                errorMessage = "投稿の更新に失敗しました。";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"投稿の更新中にエラーが発生しました: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/posts/{Id}");
+    }
+
+    public class PostModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "タイトルは必須です")]
+        [System.ComponentModel.DataAnnotations.StringLength(200, ErrorMessage = "タイトルは200文字以内で入力してください")]
+        public string Title { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "本文は必須です")]
+        [System.ComponentModel.DataAnnotations.StringLength(5000, ErrorMessage = "本文は5000文字以内で入力してください")]
+        public string Content { get; set; } = string.Empty;
+    }
+}
