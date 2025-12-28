@@ -587,103 +587,9 @@ public async Task<bool> HasUserLikedAsync(int postId, string userId)
 
 **アプリケーションURL**: http://localhost:5069
 
-### 11. トラブルシューティング履歴
+**トラブルシューティング**: 認証関連のエラーについては[TROUBLESHOOTING.md](TROUBLESHOOTING.md)を参照
 
-#### エラー1: Authorization requires cascading parameter
-**エラーメッセージ**:
-```
-System.InvalidOperationException: Authorization requires a cascading parameter of type Task<AuthenticationState>
-```
-
-**原因**: `CascadingAuthenticationState`がRoutes.razorに設定されていない
-
-**解決策**: Routes.razorに`<CascadingAuthenticationState>`を追加
-
----
-
-#### エラー2: Cannot pass the parameter 'Body'
-**エラーメッセージ**:
-```
-System.InvalidOperationException: Cannot pass the parameter 'Body' to component 'MainLayout' with rendermode 'InteractiveServerRenderMode'
-```
-
-**原因**: レイアウトコンポーネント（MainLayout.razor）に`@rendermode InteractiveServer`を設定
-
-**解決策**: MainLayout.razorから`@rendermode`を削除（レイアウトコンポーネントは常に静的）
-
----
-
-#### エラー3: Headers are read-only, response has already started
-**エラーメッセージ**:
-```
-System.InvalidOperationException: Headers are read-only, response has already started.
-```
-
-**原因**: ログイン/ログアウトページに`@rendermode InteractiveServer`を設定していたため、SignInManager/SignOutAsyncがHTTPクッキーを設定できない
-
-**詳細説明**:
-- InteractiveServerモードはSignalRでストリーミングレスポンスを開始
-- レスポンス開始後はHTTPヘッダー（クッキー含む）を変更できない
-- ASP.NET Core Identityは認証クッキーをヘッダーに設定する必要がある
-
-**解決策**:
-- Login.razorとLogout.razorから`@rendermode InteractiveServer`を削除
-- `forceLoad: true`をNavigation.NavigateToに追加して、認証後にページ全体を再読み込み
-
----
-
-#### エラー4: メールアドレスは必須です（フォームバリデーション失敗）
-**症状**: メールアドレスを入力しているのに「メールアドレスは必須です」エラーが表示
-
-**原因**: .NET 8以降では、静的サーバーレンダリングモードでフォームデータをバインドするために`[SupplyParameterFromForm]`属性が必要
-
-**解決策**:
-```csharp
-[SupplyParameterFromForm]
-private LoginModel? model { get; set; }
-
-protected override void OnInitialized()
-{
-    model ??= new();
-}
-```
-
----
-
-#### エラー5: The POST request does not specify which form is being submitted
-**原因**: .NET 8以降では、1ページに複数のフォームがある可能性を考慮してFormNameが必須
-
-**解決策**: 全EditFormに`FormName`属性を追加
-```razor
-<EditForm Model="@model" OnValidSubmit="HandleLogin" FormName="LoginForm">
-```
-
-### 12. レンダリングモードの使い分け（重要）
-
-#### 静的サーバーレンダリング（デフォルト）
-**使用すべき場所**:
-- レイアウトコンポーネント（MainLayout.razor、NavMenu.razor）
-- 認証ページ（Login.razor、Logout.razor）
-- シンプルな表示ページ（Home.razor）
-
-**特徴**:
-- サーバーで1回レンダリングして完全なHTMLを返す
-- JavaScriptなしで動作
-- HTTPリクエスト/レスポンスの標準的な動作
-- SignInManager等のHTTPクッキー操作と互換性あり
-
-#### InteractiveServerレンダリング
-**使用すべき場所**:
-- インタラクティブな機能が必要なコンポーネント（LikeButton.razor）
-- リアルタイム更新が必要なページ（投稿一覧、詳細）
-
-**特徴**:
-- SignalR経由でサーバーとリアルタイム通信
-- ストリーミングレスポンス
-- ボタンクリック等のイベントハンドリングが可能
-- HTTPヘッダーは変更不可（レスポンス開始後）
-
-### 13. ビルド結果
+### 11. ビルド結果
 
 ```
 ビルドに成功しました。
@@ -1049,110 +955,23 @@ builder.Services.AddScoped<TagService>();
 - SQL Server: 1433
 
 ### 認証情報
-- Leader: leader@echos.com / Leader123!
-- Member: member@echos.com / Member123!
-- SQL Server SA: sa / YourStrong@Passw0rd
+- **アカウント作成**: `/Account/Register` から新規登録（全ユーザーにMemberロールを自動付与）
+- **SQL Server SA**: sa / YourStrong@Passw0rd
 
 ---
 
 ## トラブルシューティング
 
-### SQL Serverコンテナの管理
+開発・運用中に遭遇する可能性のあるエラーと解決策については、**[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** を参照してください。
 
-**コンテナ起動確認**
-```bash
-docker ps | grep genesis-sqlserver
-```
-
-**コンテナ停止**
-```bash
-docker stop genesis-sqlserver
-```
-
-**コンテナ再起動**
-```bash
-docker start genesis-sqlserver
-```
-
-**コンテナ削除**
-```bash
-docker stop genesis-sqlserver
-docker rm genesis-sqlserver
-```
-
-### データベースのリセット
-
-```bash
-# データベース削除
-dotnet ef database drop --project Genesis.Echos.Infrastructure --startup-project Genesis.Echos.Main
-
-# マイグレーション再適用
-dotnet ef database update --project Genesis.Echos.Infrastructure --startup-project Genesis.Echos.Main
-```
-
-### Blazor認証関連のエラー
-
-#### "Authorization requires a cascading parameter"エラー
-**症状**: `AuthorizeView`や`[Authorize]`を使用した時にエラー
-
-**解決策**: `Routes.razor`に`<CascadingAuthenticationState>`を追加
-```razor
-<CascadingAuthenticationState>
-    <Router AppAssembly="@typeof(Program).Assembly">
-        ...
-    </Router>
-</CascadingAuthenticationState>
-```
-
-#### "Headers are read-only"エラー（ログイン時）
-**症状**: ログインボタンを押すと「Headers are read-only, response has already started」エラー
-
-**原因**: 認証ページ（Login.razor/Logout.razor）に`@rendermode InteractiveServer`を設定
-
-**解決策**:
-1. Login.razorとLogout.razorから`@rendermode InteractiveServer`を削除
-2. `Navigation.NavigateTo`に`forceLoad: true`を追加
-
-#### フォームバリデーションが動作しない
-**症状**: 入力しているのに「〜は必須です」エラーが表示される
-
-**原因**: .NET 8以降では`[SupplyParameterFromForm]`属性が必要
-
-**解決策**:
-```csharp
-[SupplyParameterFromForm]
-private LoginModel? model { get; set; }
-
-protected override void OnInitialized()
-{
-    model ??= new();
-}
-```
-
-#### "Cannot pass the parameter 'Body'"エラー
-**症状**: レイアウトコンポーネントにrendermode設定時にエラー
-
-**原因**: MainLayout等のレイアウトコンポーネントに`@rendermode`を設定
-
-**解決策**: レイアウトコンポーネントは常に静的レンダリング（rendermodeを削除）
-
-#### "The POST request does not specify which form is being submitted"エラー
-**原因**: .NET 8以降では`EditForm`に`FormName`が必須
-
-**解決策**:
-```razor
-<EditForm Model="@model" OnValidSubmit="HandleSubmit" FormName="CreatePostForm">
-```
-
-### レンダリングモード選択のガイドライン
-
-| コンポーネントタイプ | 推奨レンダリングモード | 理由 |
-|-------------------|-------------------|------|
-| レイアウト（MainLayout, NavMenu） | 静的（rendermodeなし） | Bodyパラメータを受け取るため |
-| 認証ページ（Login, Logout） | 静的（rendermodeなし） | HTTPクッキー操作が必要なため |
-| 表示のみのページ（Home） | 静的（rendermodeなし） | インタラクティブ機能が不要 |
-| インタラクティブな機能 | InteractiveServer | ボタンクリック等のイベント処理 |
-| リアルタイム更新が必要 | InteractiveServer | SignalR経由でサーバーと通信 |
+### 主なトピック
+- SQL Serverコンテナの管理
+- データベースのリセット
+- Blazor認証関連のエラー（5つの主要エラーと解決策）
+- レンダリングモード選択のガイドライン
+- Entity Framework Core関連のエラー
+- Docker関連のエラー
+- パフォーマンス最適化
 
 ---
 
@@ -1161,3 +980,4 @@ protected override void OnInitialized()
 - [ASP.NET Core Identity](https://learn.microsoft.com/aspnet/core/security/authentication/identity)
 - [Entity Framework Core](https://learn.microsoft.com/ef/core/)
 - [Blazor](https://learn.microsoft.com/aspnet/core/blazor/)
+- [Blazor Rendering Modes](https://learn.microsoft.com/aspnet/core/blazor/components/render-modes)
