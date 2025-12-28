@@ -1,5 +1,4 @@
 using Genesis.Echos.Domain.Entities;
-using Genesis.Echos.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,7 +8,6 @@ public static class DbInitializer
 {
     public static async Task InitializeAsync(
         ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager)
     {
         // Ensure database is created
@@ -23,42 +21,6 @@ public static class DbInitializer
         if (!await roleManager.RoleExistsAsync("Member"))
         {
             await roleManager.CreateAsync(new IdentityRole("Member"));
-        }
-
-        // Create default Leader user
-        if (!context.Users.Any(u => u.Email == "leader@echos.com"))
-        {
-            var leader = new ApplicationUser
-            {
-                UserName = "leader@echos.com",
-                Email = "leader@echos.com",
-                EmailConfirmed = true,
-                Role = UserRole.Leader,
-                CreatedAt = DateTime.UtcNow
-            };
-            var result = await userManager.CreateAsync(leader, "Leader123!");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(leader, "Leader");
-            }
-        }
-
-        // Create default Member user
-        if (!context.Users.Any(u => u.Email == "member@echos.com"))
-        {
-            var member = new ApplicationUser
-            {
-                UserName = "member@echos.com",
-                Email = "member@echos.com",
-                EmailConfirmed = true,
-                Role = UserRole.Member,
-                CreatedAt = DateTime.UtcNow
-            };
-            var result = await userManager.CreateAsync(member, "Member123!");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(member, "Member");
-            }
         }
 
         // Create default tags

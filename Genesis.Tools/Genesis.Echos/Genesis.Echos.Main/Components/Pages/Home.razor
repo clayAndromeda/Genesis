@@ -12,9 +12,21 @@
                 <a href="/posts" class="btn btn-primary btn-lg">
                     <i class="bi bi-chat-left-text-fill"></i> 投稿を見る
                 </a>
-                <a href="/Account/Login" class="btn btn-outline-secondary btn-lg">
-                    <i class="bi bi-box-arrow-in-right"></i> ログイン
-                </a>
+                <AuthorizeView>
+                    <Authorized>
+                        <a href="/posts/create" class="btn btn-success btn-lg">
+                            <i class="bi bi-plus-circle-fill"></i> 新規投稿
+                        </a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/Account/Login" class="btn btn-outline-secondary btn-lg">
+                            <i class="bi bi-box-arrow-in-right"></i> ログイン
+                        </a>
+                        <a href="/Account/Register" class="btn btn-outline-primary btn-lg">
+                            <i class="bi bi-person-plus-fill"></i> 新規登録
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
             </div>
         </div>
     </div>

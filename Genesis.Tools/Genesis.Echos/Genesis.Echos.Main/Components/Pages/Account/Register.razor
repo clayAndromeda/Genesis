@@ -1,16 +1,16 @@
-@page "/Account/Login"
+@page "/Account/Register"
 
-<PageTitle>ログイン - Genesis.Echos</PageTitle>
+<PageTitle>アカウント登録 - Genesis.Echos</PageTitle>
 
 <div class="container mt-5">
     <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-4">
+        <div class="col-md-6 col-lg-5">
             <div class="card shadow">
                 <div class="card-header">
-                    <h3 class="mb-0 text-center">ログイン</h3>
+                    <h3 class="mb-0 text-center">アカウント登録</h3>
                 </div>
                 <div class="card-body">
-                    <EditForm Model="@model" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                    <EditForm Model="@model" OnValidSubmit="HandleRegister" FormName="RegisterForm">
                         <DataAnnotationsValidator />
                         <ValidationSummary class="text-danger" />
 
@@ -24,13 +24,13 @@
                             <label for="password" class="form-label">パスワード</label>
                             <InputText type="password" id="password" class="form-control" @bind-Value="model!.Password" />
                             <ValidationMessage For="@(() => model!.Password)" class="text-danger" />
+                            <div class="form-text">8文字以上、大文字・小文字・数字・記号を含む必要があります</div>
                         </div>
 
-                        <div class="mb-3 form-check">
-                            <InputCheckbox id="rememberMe" class="form-check-input" @bind-Value="model!.RememberMe" />
-                            <label class="form-check-label" for="rememberMe">
-                                ログイン状態を保持
-                            </label>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">パスワード（確認）</label>
+                            <InputText type="password" id="confirmPassword" class="form-control" @bind-Value="model!.ConfirmPassword" />
+                            <ValidationMessage For="@(() => model!.ConfirmPassword)" class="text-danger" />
                         </div>
 
                         @if (!string.IsNullOrEmpty(errorMessage))
@@ -40,13 +40,20 @@
                             </div>
                         }
 
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success">
+                                @successMessage
+                            </div>
+                        }
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
                                 @if (isSubmitting)
                                 {
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span>
                                 }
-                                ログイン
+                                登録
                             </button>
                         </div>
                     </EditForm>
@@ -55,8 +62,8 @@
 
                     <div class="text-center">
                         <p class="mb-0">
-                            アカウントをお持ちでないですか？
-                            <a href="/Account/Register">新規登録</a>
+                            すでにアカウントをお持ちですか？
+                            <a href="/Account/Login">ログイン</a>
                         </p>
                     </div>
                 </div>

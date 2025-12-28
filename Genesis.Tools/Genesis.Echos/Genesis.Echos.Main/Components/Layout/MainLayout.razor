@@ -7,7 +7,27 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <div class="d-flex justify-content-end align-items-center">
+                <AuthorizeView>
+                    <Authorized>
+                        <span class="me-3">
+                            <i class="bi bi-person-circle"></i>
+                            @context.User.Identity?.Name
+                        </span>
+                        <a href="/Account/Logout" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-box-arrow-right"></i> ログアウト
+                        </a>
+                    </Authorized>
+                    <NotAuthorized>
+                        <a href="/Account/Login" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="bi bi-box-arrow-in-right"></i> ログイン
+                        </a>
+                        <a href="/Account/Register" class="btn btn-sm btn-primary">
+                            <i class="bi bi-person-plus-fill"></i> 新規登録
+                        </a>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
         </div>
 
         <article class="content px-4">
