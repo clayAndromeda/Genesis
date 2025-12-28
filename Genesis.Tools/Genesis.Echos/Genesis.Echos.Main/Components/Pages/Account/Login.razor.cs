@@ -1,4 +1,5 @@
 using Genesis.Echos.Domain.Entities;
+using Genesis.Echos.Domain.Enums;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
 using System.ComponentModel.DataAnnotations;
@@ -10,6 +11,7 @@ public partial class Login
     [Inject] private SignInManager<ApplicationUser> SignInManager { get; set; } = default!;
     [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private IConfiguration Configuration { get; set; } = default!;
 
     [SupplyParameterFromForm]
     private LoginModel? model { get; set; }
@@ -41,6 +43,9 @@ public partial class Login
                 return;
             }
 
+            // Check and promote to admin if configured
+            await CheckAndPromoteToAdmin(user);
+
             var result = await SignInManager.PasswordSignInAsync(
                 user.UserName!,
                 model.Password,
@@ -63,6 +68,25 @@ public partial class Login
         finally
         {
             isSubmitting = false;
+        }
+    }
+
+    private async Task CheckAndPromoteToAdmin(ApplicationUser user)
+    {
+        var adminEmails = Configuration.GetSection("AdminSettings:AdminEmails").Get<string[]>();
+        if (adminEmails != null && adminEmails.Contains(user.Email, StringComparer.OrdinalIgnoreCase))
+        {
+            if (user.Role != UserRole.Admin)
+            {
+                // Remove existing roles
+                var currentRoles = await UserManager.GetRolesAsync(user);
+                await UserManager.RemoveFromRolesAsync(user, currentRoles);
+
+                // Set as Admin
+                user.Role = UserRole.Admin;
+                await UserManager.UpdateAsync(user);
+                await UserManager.AddToRoleAsync(user, "Admin");
+            }
         }
     }
 

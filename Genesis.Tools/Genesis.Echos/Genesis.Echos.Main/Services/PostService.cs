@@ -203,6 +203,35 @@ public class PostService
     }
 
     /// <summary>
+    /// 投稿を削除（管理者用 - 作成者チェックなし）
+    /// </summary>
+    public async Task<bool> DeletePostAsAdminAsync(int id)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var post = await context.Posts.FindAsync(id);
+            if (post == null)
+            {
+                _logger.LogWarning("Post {PostId} not found", id);
+                return false;
+            }
+
+            context.Posts.Remove(post);
+            await context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin deleted post {PostId}", id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting post {PostId} as admin", id);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// いいねをトグル（追加/削除）
     /// </summary>
     public async Task<bool> ToggleLikeAsync(int postId, string userId)

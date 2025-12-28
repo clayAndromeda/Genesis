@@ -10,6 +10,11 @@
             <div class="d-flex justify-content-end align-items-center">
                 <AuthorizeView>
                     <Authorized>
+                        <AuthorizeView Roles="Admin" Context="adminContext">
+                            <Authorized>
+                                <AdminButton />
+                            </Authorized>
+                        </AuthorizeView>
                         <span class="me-3">
                             <i class="bi bi-person-circle"></i>
                             @context.User.Identity?.Name

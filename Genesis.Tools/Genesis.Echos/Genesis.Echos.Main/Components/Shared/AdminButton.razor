@@ -1,0 +1,14 @@
+@rendermode InteractiveServer
+
+<button class="btn btn-sm btn-warning me-2" @onclick="NavigateToAdmin">
+    <i class="bi bi-shield-lock"></i> 管理画面
+</button>
+
+@code {
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private void NavigateToAdmin()
+    {
+        NavigationManager.NavigateTo("/admin/users");
+    }
+}

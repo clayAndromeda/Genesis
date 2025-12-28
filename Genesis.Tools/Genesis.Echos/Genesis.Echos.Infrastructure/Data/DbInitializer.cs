@@ -1,6 +1,8 @@
 using Genesis.Echos.Domain.Entities;
+using Genesis.Echos.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Genesis.Echos.Infrastructure.Data;
 
@@ -8,7 +10,9 @@ public static class DbInitializer
 {
     public static async Task InitializeAsync(
         ApplicationDbContext context,
-        RoleManager<IdentityRole> roleManager)
+        RoleManager<IdentityRole> roleManager,
+        UserManager<ApplicationUser> userManager,
+        IConfiguration configuration)
     {
         // Ensure database is created
         await context.Database.MigrateAsync();
@@ -21,6 +25,31 @@ public static class DbInitializer
         if (!await roleManager.RoleExistsAsync("Member"))
         {
             await roleManager.CreateAsync(new IdentityRole("Member"));
+        }
+        if (!await roleManager.RoleExistsAsync("Admin"))
+        {
+            await roleManager.CreateAsync(new IdentityRole("Admin"));
+        }
+
+        // Promote configured admin users
+        var adminEmails = configuration.GetSection("AdminSettings:AdminEmails").Get<string[]>();
+        if (adminEmails != null && adminEmails.Length > 0)
+        {
+            foreach (var email in adminEmails)
+            {
+                var user = await userManager.FindByEmailAsync(email);
+                if (user != null && user.Role != UserRole.Admin)
+                {
+                    // Remove existing roles
+                    var currentRoles = await userManager.GetRolesAsync(user);
+                    await userManager.RemoveFromRolesAsync(user, currentRoles);
+
+                    // Set as Admin
+                    user.Role = UserRole.Admin;
+                    await userManager.UpdateAsync(user);
+                    await userManager.AddToRoleAsync(user, "Admin");
+                }
+            }
         }
 
         // Create default tags

@@ -1,155 +1,148 @@
-# Genesis.Echos プロジェクト - アーキテクチャドキュメント
+# Genesis.Echos - プロジェクトアーキテクチャ
 
-最終更新: 2025-12-28
+最終更新: 2025-12-29
 
 ## 目次
 
-1. [プロジェクト構造](#1-プロジェクト構造)
-2. [技術スタック](#2-技術スタック)
-3. [アーキテクチャパターン](#3-アーキテクチャパターン)
-4. [主要なコンポーネント](#4-主要なコンポーネント)
-5. [現在の機能状態](#5-現在の機能状態)
-6. [今後の拡張候補](#6-今後の拡張候補)
+1. [プロジェクト概要](#プロジェクト概要)
+2. [プロジェクト構造](#プロジェクト構造)
+3. [技術スタック](#技術スタック)
+4. [アーキテクチャ](#アーキテクチャ)
+5. [ドメインモデル](#ドメインモデル)
+6. [主要機能](#主要機能)
+7. [認証・認可](#認証認可)
+8. [今後の拡張](#今後の拡張)
 
 ---
 
-## 1. プロジェクト構造
+## プロジェクト概要
+
+**Genesis.Echos** はゲーム開発チーム向けの掲示板システムです。
+
+### 特徴
+
+- **モダンなアーキテクチャ**: ASP.NET Core 10.0 + Blazor Server
+- **完全な認証・認可**: ASP.NET Core Identity + ロールベース
+- **3層ユーザーロール**: Admin（管理者）、Leader（リーダー）、Member（通常メンバー）
+- **データベース**: Entity Framework Core + SQL Server (Docker)
+- **リアルタイムUI**: Blazor Interactive Server コンポーネント
+
+---
+
+## プロジェクト構造
 
 ### ソリューション構成
-
-Genesis.Echos プロジェクトは、4つのメインプロジェクトで構成されています：
-
-#### プロジェクト一覧
-
-| プロジェクト | タイプ | フレームワーク | 用途 |
-|------------|--------|---------------|------|
-| **Genesis.Echos.Main** | Web (ASP.NET Core) | .NET 10.0 | Blazor Server UI レイヤー |
-| **Genesis.Echos.Domain** | Class Library | .NET 10.0 | エンティティ・Enum 定義 |
-| **Genesis.Echos.Infrastructure** | Class Library | .NET 10.0 | データアクセス・DbContext・Migrations |
-| **Genesis.Echos.Tests** | Test Project | .NET 10.0 | xUnit テスト |
-
-#### プロジェクト間の依存関係
-
-```
-Genesis.Echos.Main
-├── Genesis.Echos.Domain
-│   └── Microsoft.Extensions.Identity.Stores
-└── Genesis.Echos.Infrastructure
-    ├── Genesis.Echos.Domain
-    ├── Microsoft.AspNetCore.Identity.EntityFrameworkCore
-    ├── Microsoft.EntityFrameworkCore.SqlServer
-    └── Microsoft.EntityFrameworkCore.Tools
-
-Genesis.Echos.Tests
-├── Genesis.Echos.Main
-├── Genesis.Echos.Domain
-└── Genesis.Echos.Infrastructure
-```
-
-### ディレクトリ構成
 
 ```
 Genesis.Echos/
 ├── Genesis.Echos.sln
-├── Genesis.Echos.Main/
-│   ├── Program.cs                    # DI設定・認証設定
-│   ├── appsettings.json              # 接続文字列・ログ設定
-│   ├── Services/
-│   │   └── PostService.cs            # ビジネスロジック
-│   ├── Components/
-│   │   ├── App.razor                 # ルーティング・認証ラッパー
-│   │   ├── Routes.razor              # ルートハンドラー
-│   │   ├── Layout/
-│   │   │   ├── MainLayout.razor
-│   │   │   ├── NavMenu.razor
-│   │   │   └── ReconnectModal.razor
-│   │   ├── Pages/
-│   │   │   ├── Home.razor
-│   │   │   ├── Account/
-│   │   │   │   ├── Login.razor
-│   │   │   │   └── Logout.razor
-│   │   │   └── Posts/
-│   │   │       ├── Index.razor       # 投稿一覧
-│   │   │       ├── Create.razor      # 投稿作成
-│   │   │       ├── Detail.razor      # 投稿詳細
-│   │   │       └── Edit.razor        # 投稿編集
-│   │   └── Shared/
-│   │       └── LikeButton.razor      # 共有コンポーネント
-│   └── wwwroot/
-├── Genesis.Echos.Domain/
-│   ├── Entities/
-│   │   ├── ApplicationUser.cs
-│   │   ├── Post.cs
-│   │   ├── Like.cs
-│   │   ├── Comment.cs
-│   │   ├── Tag.cs
-│   │   └── PostTag.cs
-│   └── Enums/
-│       ├── UserRole.cs
-│       └── ImportanceLevel.cs
-├── Genesis.Echos.Infrastructure/
-│   ├── Data/
-│   │   ├── ApplicationDbContext.cs
-│   │   └── DbInitializer.cs
-│   └── Migrations/
-└── Genesis.Echos.Tests/
+├── Genesis.Echos.Main/          # Blazor Server UI
+├── Genesis.Echos.Domain/        # エンティティ・Enum
+├── Genesis.Echos.Infrastructure/ # DbContext・Migrations
+└── Genesis.Echos.Tests/         # xUnit テスト
+```
+
+### 依存関係
+
+```
+Main → Domain + Infrastructure
+Infrastructure → Domain
+Tests → Main + Domain + Infrastructure
+```
+
+### ディレクトリ詳細
+
+```
+Genesis.Echos.Main/
+├── Program.cs                    # DI設定・認証設定・起動処理
+├── appsettings.json             # 接続文字列・管理者設定
+├── Services/
+│   ├── PostService.cs           # 投稿CRUD・いいね機能
+│   ├── AdminService.cs          # 管理者機能（ユーザー・投稿管理）
+│   └── TagService.cs            # タグ取得
+└── Components/
+    ├── Layout/
+    │   ├── MainLayout.razor     # 全体レイアウト（ヘッダー・サイドバー）
+    │   └── NavMenu.razor        # サイドバーナビゲーション
+    ├── Pages/
+    │   ├── Home.razor           # トップページ
+    │   ├── Account/
+    │   │   ├── Login.razor      # ログイン
+    │   │   ├── Logout.razor     # ログアウト
+    │   │   └── Register.razor   # アカウント作成
+    │   ├── Admin/
+    │   │   ├── Users.razor      # ユーザー管理（Admin専用）
+    │   │   └── Posts.razor      # 投稿管理（Admin専用）
+    │   └── Posts/
+    │       ├── Index.razor      # 投稿一覧
+    │       ├── Create.razor     # 投稿作成
+    │       ├── Detail.razor     # 投稿詳細
+    │       └── Edit.razor       # 投稿編集
+    └── Shared/
+        ├── LikeButton.razor     # いいねボタン（InteractiveServer）
+        ├── TagBadge.razor       # タグバッジ
+        └── AdminButton.razor    # 管理画面ボタン（InteractiveServer）
+
+Genesis.Echos.Domain/
+├── Entities/
+│   ├── ApplicationUser.cs       # ユーザー（Identity拡張）
+│   ├── Post.cs                  # 投稿
+│   ├── Tag.cs                   # タグ
+│   ├── PostTag.cs              # 投稿-タグ中間テーブル
+│   ├── Like.cs                  # いいね
+│   └── Comment.cs              # コメント
+└── Enums/
+    ├── UserRole.cs             # Member/Leader/Admin
+    └── ImportanceLevel.cs      # B/A/S
+
+Genesis.Echos.Infrastructure/
+├── Data/
+│   ├── ApplicationDbContext.cs  # EF Core DbContext
+│   └── DbInitializer.cs        # DB初期化・シードデータ
+└── Migrations/                  # EF Coreマイグレーション
 ```
 
 ---
 
-## 2. 技術スタック
+## 技術スタック
 
-### コアフレームワーク
+### フレームワーク
 
 - **ASP.NET Core**: 10.0
-- **Blazor**: Interactive Server (Razor Components)
-- **ランタイム**: .NET 10.0
+- **Blazor**: Interactive Server (一部ページで使用)
+- **Entity Framework Core**: 10.0.1
+- **ASP.NET Core Identity**: 認証・認可
 
 ### データベース
 
-- **DBMS**: SQL Server (Docker)
-- **ORM**: Entity Framework Core 10.0.1
-- **認証**: ASP.NET Core Identity
+- **SQL Server 2022** (Docker)
+- **接続文字列**: `Server=localhost,1433;Database=GenesisEchos;...`
 
 ### NuGetパッケージ
 
-#### Genesis.Echos.Domain
-```xml
-Microsoft.Extensions.Identity.Stores v10.0.1
-```
+#### Main
+- Microsoft.EntityFrameworkCore.Design (10.0.1)
 
-#### Genesis.Echos.Infrastructure
-```xml
-Microsoft.AspNetCore.Identity.EntityFrameworkCore v10.0.1
-Microsoft.EntityFrameworkCore.SqlServer v10.0.1
-Microsoft.EntityFrameworkCore.Tools v10.0.1
-```
+#### Domain
+- Microsoft.Extensions.Identity.Stores (10.0.1)
 
-#### Genesis.Echos.Tests
-```xml
-Microsoft.NET.Test.Sdk v17.14.1
-xunit v2.9.3
-Shouldly v4.3.0
-```
+#### Infrastructure
+- Microsoft.AspNetCore.Identity.EntityFrameworkCore (10.0.1)
+- Microsoft.EntityFrameworkCore.SqlServer (10.0.1)
+- Microsoft.EntityFrameworkCore.Tools (10.0.1)
 
-### データベース接続
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost,1433;Database=GenesisEchos;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;MultipleActiveResultSets=true"
-  }
-}
-```
+#### Tests
+- xunit (2.9.3)
+- Shouldly (4.3.0)
+- Microsoft.NET.Test.Sdk (17.14.1)
 
 ### 起動URL
 
 - **HTTP**: http://localhost:5069
-- **HTTPS**: https://localhost:7219
 
 ---
 
-## 3. アーキテクチャパターン
+## アーキテクチャ
 
 ### レイヤー構造
 
@@ -157,21 +150,28 @@ Shouldly v4.3.0
 ┌─────────────────────────────────────┐
 │  Presentation Layer                 │
 │  (Blazor Components)                │
+│  - Pages (Login, Posts, Admin)      │
+│  - Shared (LikeButton, TagBadge)    │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
 │  Application/Service Layer          │
-│  (PostService)                      │
+│  - PostService                      │
+│  - TagService                       │
+│  - AdminService                     │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
 │  Domain Layer                       │
-│  (Entities, Enums)                  │
+│  - Entities (User, Post, Tag...)    │
+│  - Enums (UserRole, Importance...)  │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
 │  Infrastructure/Data Layer          │
-│  (DbContext, Migrations)            │
+│  - ApplicationDbContext             │
+│  - Migrations                       │
+│  - DbInitializer                    │
 └─────────────────┬───────────────────┘
                   │
 ┌─────────────────▼───────────────────┐
@@ -179,170 +179,49 @@ Shouldly v4.3.0
 └─────────────────────────────────────┘
 ```
 
-### 実装されているパターン
+### 設計パターン
 
-#### 1. 依存性注入 (DI)
-
-Program.cs で以下のサービスを登録：
+#### 依存性注入（DI）
 
 ```csharp
-// Scoped
-services.AddDbContext<ApplicationDbContext>();
-services.AddScoped<PostService>();
-
-// Identity Services (Transient)
-services.AddDefaultIdentity<ApplicationUser>();
+// Program.cs
+builder.Services.AddDbContext<ApplicationDbContext>();
+builder.Services.AddScoped<PostService>();
+builder.Services.AddScoped<TagService>();
+builder.Services.AddScoped<AdminService>();
+builder.Services.AddDefaultIdentity<ApplicationUser>();
 ```
 
-#### 2. データアクセスパターン
+#### リポジトリパターン（簡易版）
 
-- **DbContext**: `ApplicationDbContext` (IdentityDbContext 継承)
-- **Entity Framework Core** でデータ操作
-- **IServiceScopeFactory** を使用した動的スコープ管理
+- `PostService`, `TagService`, `AdminService` がリポジトリの役割
+- `IServiceScopeFactory` で動的スコープ管理
+- EF Core の `DbContext` を直接使用
 
-#### 3. 認可パターン
+#### 認可パターン
 
-- `[Authorize]` 属性によるページ/コンポーネント保護
-- `ClaimsPrincipal` から `UserId` を抽出
-- ユーザーロール (`UserRole` enum) 検証
-
-#### 4. ビジネスロジック
-
-- **PostService** クラスで集約
-- 作成者チェック (CRUD操作時)
-- いいね重複防止 (一意制約)
-- エラーハンドリング・ログ記録
-
-### データベース設計の特徴
-
-#### 複合主キー・一意制約
-
-- **PostTag**: `(PostId, TagId)` の複合主キー
-- **Like**: `(PostId, UserId)` の一意制約 → 1ユーザー1投稿に対して1いいね
-
-#### カスケード削除設定
-
-- **Post削除時**: Comments/Likes/PostTags 全て自動削除
-- **User削除時**: NoAction (アプリケーションレベルで管理)
+- `[Authorize]` 属性でページ保護
+- `[Authorize(Roles = "Admin")]` でロールベース認可
+- `ClaimsPrincipal` からユーザーID取得
 
 ---
 
-## 4. 主要なコンポーネント
+## ドメインモデル
 
-### ドメインモデル
-
-#### ApplicationUser.cs
-
-```csharp
-public class ApplicationUser : IdentityUser
-{
-    public UserRole Role { get; set; } = UserRole.Member;
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation Properties
-    public ICollection<Post> Posts { get; set; }
-    public ICollection<Like> Likes { get; set; }
-    public ICollection<Comment> Comments { get; set; }
-}
-```
-
-#### Post.cs
-
-```csharp
-public class Post
-{
-    public int Id { get; set; }
-    public string Title { get; set; }           // 最大200文字
-    public string Content { get; set; }         // 最大5000文字
-    public string AuthorId { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-
-    // Leader専用フィールド (未実装)
-    public bool IsRead { get; set; }
-    public ImportanceLevel? Importance { get; set; }
-
-    // Navigation Properties
-    public ApplicationUser Author { get; set; }
-    public ICollection<PostTag> PostTags { get; set; }
-    public ICollection<Like> Likes { get; set; }
-    public ICollection<Comment> Comments { get; set; }
-}
-```
-
-#### Like.cs
-
-```csharp
-public class Like
-{
-    public int Id { get; set; }
-    public int PostId { get; set; }
-    public string UserId { get; set; }
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation Properties
-    public Post Post { get; set; }
-    public ApplicationUser User { get; set; }
-}
-```
-
-#### Comment.cs
-
-```csharp
-public class Comment
-{
-    public int Id { get; set; }
-    public int PostId { get; set; }
-    public string AuthorId { get; set; }
-    public string Content { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-
-    // Navigation Properties
-    public Post Post { get; set; }
-    public ApplicationUser Author { get; set; }
-}
-```
-
-#### Tag.cs
-
-```csharp
-public class Tag
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public string Color { get; set; }  // HEX色コード
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation Properties
-    public ICollection<PostTag> PostTags { get; set; }
-}
-```
-
-#### PostTag.cs (中間テーブル)
-
-```csharp
-public class PostTag
-{
-    public int PostId { get; set; }
-    public int TagId { get; set; }
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation Properties
-    public Post Post { get; set; }
-    public Tag Tag { get; set; }
-}
-```
-
-#### Enums
+### ユーザーロール
 
 ```csharp
 public enum UserRole
 {
-    Member = 0,   // 通常ユーザー
-    Leader = 1    // リーダー
+    Member = 0,  // 通常メンバー（デフォルト）
+    Leader = 1,  // リーダー（将来の拡張用）
+    Admin = 2    // 管理者
 }
+```
 
+### 重要度レベル（将来の拡張用）
+
+```csharp
 public enum ImportanceLevel
 {
     B = 0,  // 低
@@ -351,244 +230,232 @@ public enum ImportanceLevel
 }
 ```
 
-### サービス層
+### エンティティ
 
-#### PostService.cs
+#### ApplicationUser
+- ASP.NET Core Identity の `IdentityUser` を継承
+- `Role`: UserRole (Member/Leader/Admin)
+- `CreatedAt`: 作成日時
+- ナビゲーション: Posts, Likes, Comments
 
-主要メソッド:
+#### Post
+- 投稿の基本情報（Title, Content, AuthorId）
+- タイムスタンプ（CreatedAt, UpdatedAt）
+- 将来の拡張: IsRead, Importance（Leader専用）
+- ナビゲーション: Author, PostTags, Likes, Comments
 
-| メソッド | 説明 | 戻り値 |
-|---------|------|--------|
-| `GetAllPostsAsync()` | すべての投稿取得 (作成者・いいね数含む) | `List<Post>` |
-| `GetPostByIdAsync(int)` | 投稿詳細取得 (作成者・いいね・コメント含む) | `Post` |
-| `CreatePostAsync(Post)` | 新規投稿作成 | `Post` |
-| `UpdatePostAsync(Post, userId)` | 投稿更新（作成者チェック） | `Post` |
-| `DeletePostAsync(int, userId)` | 投稿削除（作成者チェック） | `bool` |
-| `ToggleLikeAsync(int, userId)` | いいねの追加/削除 | `void` |
-| `HasUserLikedAsync(int, userId)` | ユーザーのいいね状態確認 | `bool` |
+#### Tag
+- タグ情報（Name, Color）
+- デフォルトで5種類のタグが初期化される
+- ナビゲーション: PostTags
 
-**実装特性:**
-- `IServiceScopeFactory` で動的スコープ管理
-- `ILogger<PostService>` でエラー・情報ログ記録
-- 作成者チェック（UpdatePost/DeletePost）
-- 例外ハンドリング・ロギング
+#### PostTag（中間テーブル）
+- 投稿とタグの多対多リレーション
+- 複合主キー: (PostId, TagId)
 
-### UIコンポーネント
+#### Like
+- いいね情報（PostId, UserId）
+- 一意制約: (PostId, UserId) → 1ユーザー1投稿1いいね
+- ナビゲーション: Post, User
 
-#### Layout
+#### Comment
+- コメント情報（PostId, AuthorId, Content）
+- 将来の拡張用（現在UIなし）
+- ナビゲーション: Post, Author
 
-- **MainLayout.razor**: サイドバー + メインコンテンツ
-- **NavMenu.razor**: ナビゲーションメニュー
-- **ReconnectModal.razor**: Blazor Server 再接続モーダル
+### データベース設計の特徴
 
-#### Shared
-
-- **LikeButton.razor**: いいねボタン (再利用可能)
-  - パラメータ: `PostId`, `LikeCount`, `IsLiked`
-  - イベント: `OnLikeChanged`
-  - UI: ハートアイコン + 数値
-
-#### Pages
-
-| ページ | パス | 認証 | 説明 |
-|--------|------|------|------|
-| Home | `/` | 不要 | ようこそメッセージ |
-| Login | `/Account/Login` | 不要 | ログインフォーム |
-| Logout | `/Account/Logout` | 不要 | ログアウト画面 |
-| Index | `/posts` | 必須 | 投稿一覧 |
-| Create | `/posts/create` | 必須 | 投稿作成 |
-| Detail | `/posts/{id}` | 必須 | 投稿詳細 |
-| Edit | `/posts/{id}/edit` | 必須 | 投稿編集 (作成者のみ) |
+- **複合主キー**: PostTag (PostId, TagId)
+- **一意制約**: Like (PostId, UserId)
+- **カスケード削除**: Post削除時にComments/Likes/PostTagsも削除
+- **循環参照防止**: User削除時はNoAction
 
 ---
 
-## 5. 現在の機能状態
+## 主要機能
 
 ### 実装済み機能
 
 #### Phase 1: 基盤構築 ✅
-
-- プロジェクト構造（Main, Domain, Infrastructure, Tests）
-- Entity Framework Core + SQL Server（Docker）
+- プロジェクト構造
+- Entity Framework Core + SQL Server (Docker)
 - ASP.NET Core Identity設定
-- ドメインモデル（Post, Tag, Like, Comment, ApplicationUser）
-- データベースマイグレーション
-- シードデータ（テストユーザー・タグ）
+- ドメインモデル
+- マイグレーション・シードデータ
 
-#### Phase 2: 投稿CRUD機能 ✅
-
-- PostServiceの作成（CRUD操作）
+#### Phase 2: 投稿CRUD ✅
+- PostService（作成・読取・更新・削除）
 - 投稿一覧・詳細・作成・編集ページ
-- Bootstrap 5ベースのUI
-- バリデーション実装
+- バリデーション（Title: 200文字、Content: 5000文字）
+- 作成者チェック（編集・削除）
 
 #### Phase 3: いいね機能＋認証 ✅
-
 - いいね機能（ToggleLikeAsync, HasUserLikedAsync）
 - LikeButtonコンポーネント（InteractiveServer）
 - ログイン/ログアウトページ
 - 認証状態のカスケード設定
-- レンダリングモードの最適化
 
-### 認証・認可
+#### Phase 4: タグ機能 ✅
+- TagService（タグ取得）
+- 投稿作成・編集時のタグ選択（複数選択可）
+- TagBadgeコンポーネント
+- 投稿一覧・詳細でのタグ表示
+- デフォルトタグ: アイデア/バグ報告/改善提案/質問/その他
 
-#### ASP.NET Core Identity 設定
+#### Phase 5: アカウント作成 ✅
+- 新規ユーザー登録ページ
+- 自動的にMemberロール付与
+- 登録後の自動ログイン
+- MainLayoutでの認証UI改善
 
-- **ユーザー管理**: `UserManager<ApplicationUser>`
-- **サインイン管理**: `SignInManager<ApplicationUser>`
-- **ロール管理**: `RoleManager<IdentityRole>`
-- **デフォルトロール**: "Leader", "Member"
+#### Phase 6: 管理者機能 ✅
+- AdminService（ユーザー・投稿管理）
+- ユーザー管理画面（ロール変更・削除）
+- 投稿管理画面（投稿削除）
+- 管理者ボタン（AdminButton）
+- appsettings.jsonで管理者メール設定
+- ログイン時の自動Admin昇格
 
-#### パスワード要件
+### サービス層の主要メソッド
 
-- 最小長: 8文字
-- 大文字必須
-- 小文字必須
-- 数字必須
-- 特殊文字必須
-- メールアドレス一意性: 必須
+#### PostService
+- `GetAllPostsAsync()`: 投稿一覧取得
+- `GetPostByIdAsync(int)`: 投稿詳細取得
+- `CreatePostAsync(Post, List<int>)`: 投稿作成（タグ付き）
+- `UpdatePostAsync(Post, userId, List<int>)`: 投稿更新
+- `DeletePostAsync(int, userId)`: 投稿削除
+- `DeletePostAsAdminAsync(int)`: 管理者権限での投稿削除
+- `ToggleLikeAsync(int, userId)`: いいねトグル
+- `HasUserLikedAsync(int, userId)`: いいね状態確認
 
-#### デフォルトユーザー
+#### AdminService
+- `GetAllUsersAsync()`: 全ユーザー取得
+- `ChangeUserRoleAsync(userId, UserRole)`: ロール変更（Admin除く）
+- `DeleteUserAsync(userId)`: ユーザー削除（Admin除く）
+- `DeletePostAsync(postId)`: 投稿削除（管理者権限）
 
-| 役割 | メールアドレス | パスワード |
-|-----|---------------|-----------|
-| Leader | leader@echos.com | Leader123! |
-| Member | member@echos.com | Member123! |
-
-#### 認証フロー
-
-1. ユーザーが `/Account/Login` にアクセス
-2. メール・パスワード入力
-3. `SignInManager.PasswordSignInAsync()` で検証
-4. 成功時: 指定URL へリダイレクト (デフォルト: `/posts`)
-5. 失敗時: エラーメッセージ表示
-
-### 検証・エラーハンドリング
-
-#### フォーム検証
-
-- `EditForm` + `DataAnnotationsValidator` 使用
-- `ValidationSummary` 表示
-- `ValidationMessage` (フィールド単位)
-
-#### 制限事項
-
-- **Title**: 必須・最大200文字
-- **Content**: 必須・最大5000文字
-
-#### エラーメッセージ
-
-- ログイン失敗: "メールアドレスまたはパスワードが正しくありません"
-- 投稿作成/更新失敗: 例外メッセージ表示
-- 権限エラー: "この投稿を編集する権限がありません"
-
-### データベース初期化
-
-**DbInitializer.cs で実行:**
-
-1. マイグレーション実行
-2. ロール作成: "Leader", "Member"
-3. デフォルトユーザー作成
-4. デフォルトタグ作成 (5個)
-
-**デフォルトタグ:**
-
-| タグ名 | 色 | Bootstrap Class |
-|--------|----|-----------------|
-| アイデア | 青 | primary |
-| バグ報告 | 赤 | danger |
-| 改善提案 | 緑 | success |
-| 質問 | 黄 | warning |
-| その他 | グレー | secondary |
-
-### UI フレームワーク
-
-- **Bootstrap 5** (wwwroot/lib/bootstrap)
-- **Bootstrap Icons** (bi クラス)
-- **Blazor Server Interactivity**
-- **Razor Components** (.razor ファイル)
+#### TagService
+- `GetAllTagsAsync()`: 全タグ取得
+- `GetTagByIdAsync(int)`: タグ取得
 
 ---
 
-## 6. 今後の拡張候補
+## 認証・認可
+
+### ASP.NET Core Identity設定
+
+- `UserManager<ApplicationUser>`: ユーザー管理
+- `SignInManager<ApplicationUser>`: サインイン管理
+- `RoleManager<IdentityRole>`: ロール管理
+- デフォルトロール: Admin, Leader, Member
+
+### パスワード要件
+
+- 最小長: 8文字
+- 大文字・小文字・数字・特殊文字: 必須
+- メールアドレス一意性: 必須
+
+### 管理者設定
+
+appsettings.jsonで管理者を設定:
+
+```json
+{
+  "AdminSettings": {
+    "AdminEmails": [
+      "admin@example.com"
+    ]
+  }
+}
+```
+
+- アプリ起動時にAdminロール昇格
+- ログイン時にAdminロール昇格（CheckAndPromoteToAdmin）
+
+### デフォルトデータ
+
+#### ロール
+- Admin, Leader, Member
+
+#### タグ
+- アイデア (#0d6efd)
+- バグ報告 (#dc3545)
+- 改善提案 (#198754)
+- 質問 (#ffc107)
+- その他 (#6c757d)
+
+### 認証フロー
+
+1. `/Account/Login` でメール・パスワード入力
+2. `SignInManager.PasswordSignInAsync()` で検証
+3. 管理者メール設定チェック→必要に応じてAdmin昇格
+4. 成功時: `/posts` へリダイレクト
+5. 失敗時: エラーメッセージ表示
+
+### Blazor認証の注意点
+
+#### レンダリングモード
+- **認証ページ（Login/Logout/Register）**: `@rendermode` なし（静的サーバーレンダリング）
+  - 理由: ASP.NET Core IdentityがHTTPクッキーを設定するため
+- **インタラクティブコンポーネント（LikeButton/AdminButton）**: `@rendermode InteractiveServer`
+  - 理由: クリックイベント等のリアルタイム処理が必要
+- **レイアウト（MainLayout）**: `@rendermode` 不可
+  - 理由: レイアウトには`@rendermode`を指定できない
+  - 対策: インタラクティブな部分を別コンポーネント（AdminButton）に分離
+
+#### 認証状態のカスケード
+- `Routes.razor` で `<CascadingAuthenticationState>` 使用
+- `AuthorizeRouteView` で `[Authorize]` 属性をサポート
+- InteractiveServerコンポーネントは新しいサーキットを作成するため、親から認証状態を受け取れない
+  - 解決策: 親で `AuthorizeView` チェック→子で機能実装
+
+---
+
+## 今後の拡張
 
 ### 未実装機能
 
-#### Phase 4: タグ機能 (予定)
+#### Leader専用機能（Phase 7候補）
+- 既読管理（IsReadフラグ）
+- 重要度設定（ImportanceLevel）
+- コメント機能のUI実装
+- Leaderダッシュボード
 
-- [ ] 投稿へのタグ紐付け
-- [ ] タグによる投稿フィルタリング
-- [ ] タグの作成・編集・削除
-- [ ] タグ一覧ページ
+#### 一般機能拡張
+- 検索機能（タイトル・本文）
+- ページネーション
+- ソート機能（日付・いいね数）
+- ユーザープロフィール編集
+- 通知機能
+- 添付ファイル
+- Markdown対応
+- 下書き機能
 
-#### Phase 5: リーダー機能 (予定)
-
-- [ ] 既読管理 (IsRead フラグ)
-- [ ] 重要度設定 (ImportanceLevel)
-- [ ] Leader専用ダッシュボード
-- [ ] メンバーの投稿状況確認
-
-#### その他の拡張候補
-
-- [ ] **コメント機能**: 作成・編集・削除
-- [ ] **検索機能**: タイトル・本文の全文検索
-- [ ] **ページネーション**: 投稿一覧の分割表示
-- [ ] **ソート機能**: 日付・いいね数・コメント数でソート
-- [ ] **ユーザープロフィール**: プロフィール編集・アバター
-- [ ] **通知機能**: いいね・コメント時の通知
-- [ ] **添付ファイル**: 画像・ファイルアップロード
-- [ ] **マークダウン対応**: 投稿本文のMarkdownレンダリング
-- [ ] **下書き機能**: 投稿の一時保存
-- [ ] **投稿テンプレート**: よく使う投稿フォーマット
-- [ ] **APIエンドポイント**: REST API または GraphQL
-- [ ] **モバイル対応**: レスポンシブデザインの強化
-
-### 技術的改善候補
-
-- [ ] **パフォーマンス最適化**: クエリの最適化、キャッシング
-- [ ] **テストカバレッジ向上**: ユニットテスト・統合テストの追加
-- [ ] **CI/CD パイプライン**: GitHub Actions などの導入
-- [ ] **Docker Compose**: アプリケーション全体のコンテナ化
-- [ ] **ログ記録**: Serilog などの構造化ログ
-- [ ] **監視・アラート**: Application Insights などの導入
-- [ ] **セキュリティ強化**: CSRF対策、XSS対策の強化
-- [ ] **国際化 (i18n)**: 多言語対応
-- [ ] **アクセシビリティ**: WCAG 2.1準拠
+#### 技術的改善
+- パフォーマンス最適化（キャッシング）
+- テストカバレッジ向上
+- CI/CD パイプライン
+- Docker Compose（アプリ全体のコンテナ化）
+- 構造化ログ（Serilog）
+- 監視・アラート
 
 ---
 
-## 依存関係マトリックス
+## トラブルシューティング
 
-| プロジェクト | Domain | Infrastructure | Main | Tests |
-|-------------|--------|----------------|------|-------|
-| Domain | - | - | ✓ | ✓ |
-| Infrastructure | ✓ | - | ✓ | ✓ |
-| Main | ✓ | ✓ | - | ✓ |
-| Tests | ✓ | ✓ | ✓ | - |
+詳細は [TROUBLESHOOTING.md](TROUBLESHOOTING.md) を参照
 
----
-
-## まとめ
-
-**Genesis.Echos** はゲーム開発チーム向けの掲示板システムで、以下の特徴があります：
-
-- **モダンなアーキテクチャ**: ASP.NET Core 10.0 + Blazor Server
-- **完全な認証・認可**: ASP.NET Core Identity + ロールベース (Member/Leader)
-- **データベース**: Entity Framework Core + SQL Server
-- **クリーンなレイヤー構造**: Domain → Service → Presentation
-- **リアルタイムUI**: Blazor Interactive Server コンポーネント
-- **Phase 3 完了**: 基本的な投稿管理・いいね・ログイン機能実装済み
-- **拡張性**: Leader専用機能（コメント・重要度）の基盤が実装されているが、UI は未実装
-
-### 設計の品質
-
-- **関心の分離**: ドメイン駆動設計 (DDD) の基本原則に従っています
-- **最新技術**: .NET 10.0、Nullable参照型、暗黙的なusing
-- **拡張性**: 新機能追加のための基盤が整っています
+### 主なトピック
+- SQL Serverコンテナ管理
+- データベースリセット
+- Blazor認証エラー（5つの主要エラー）
+- レンダリングモード選択ガイドライン
+- Entity Framework Coreエラー
 
 ---
 
-**絶対パス:**
+## 絶対パス
+
 - ソリューション: `/Users/user/src/projects/Genesis/Genesis.Tools/Genesis.Echos/Genesis.Echos.sln`
 - Program.cs: `/Users/user/src/projects/Genesis/Genesis.Tools/Genesis.Echos/Genesis.Echos.Main/Program.cs`
 - DbContext: `/Users/user/src/projects/Genesis/Genesis.Tools/Genesis.Echos/Genesis.Echos.Infrastructure/Data/ApplicationDbContext.cs`

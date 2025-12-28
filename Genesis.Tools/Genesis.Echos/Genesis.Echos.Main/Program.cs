@@ -47,6 +47,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Add application services
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<TagService>();
+builder.Services.AddScoped<AdminService>();
 
 var app = builder.Build();
 
@@ -58,7 +59,9 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-        await DbInitializer.InitializeAsync(context, roleManager);
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var configuration = services.GetRequiredService<IConfiguration>();
+        await DbInitializer.InitializeAsync(context, roleManager, userManager, configuration);
     }
     catch (Exception ex)
     {

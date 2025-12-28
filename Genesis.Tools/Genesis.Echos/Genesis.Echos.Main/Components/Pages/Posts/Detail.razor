@@ -51,6 +51,12 @@
                                     </button>
                                 </div>
                             }
+                            else if (IsAdmin(context.User))
+                            {
+                                <button class="btn btn-sm btn-danger" @onclick="DeletePostAsAdmin">
+                                    <i class="bi bi-trash"></i> 管理者削除
+                                </button>
+                            }
                         </Authorized>
                     </AuthorizeView>
                 </div>

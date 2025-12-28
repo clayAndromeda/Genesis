@@ -1,0 +1,80 @@
+@page "/admin/posts"
+@using Genesis.Echos.Domain.Entities
+@using Genesis.Echos.Main.Services
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@rendermode InteractiveServer
+
+<PageTitle>投稿管理</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">管理画面</h2>
+    </div>
+
+    <ul class="nav nav-tabs mb-4">
+        <li class="nav-item">
+            <span class="nav-link" style="cursor: pointer;" @onclick='() => NavigationManager.NavigateTo("/admin/users")'>ユーザー管理</span>
+        </li>
+        <li class="nav-item">
+            <span class="nav-link active" style="cursor: default;">投稿管理</span>
+        </li>
+    </ul>
+
+    @if (posts == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">読み込み中...</span>
+            </div>
+        </div>
+    }
+    else if (!posts.Any())
+    {
+        <div class="alert alert-info">投稿が見つかりません。</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>タイトル</th>
+                        <th>投稿者</th>
+                        <th>作成日</th>
+                        <th>いいね</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var post in posts)
+                    {
+                        <tr>
+                            <td>@post.Id</td>
+                            <td>@post.Title</td>
+                            <td>@post.Author.Email</td>
+                            <td>@post.CreatedAt.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</td>
+                            <td>@post.Likes.Count</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger"
+                                        @onclick="() => DeletePost(post.Id, post.Title)">
+                                    <i class="bi bi-trash"></i> 削除
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">@errorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success mt-3">@successMessage</div>
+    }
+</div>

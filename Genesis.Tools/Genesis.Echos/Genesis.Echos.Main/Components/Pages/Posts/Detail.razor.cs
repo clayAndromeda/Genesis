@@ -46,6 +46,11 @@ public partial class Detail
         return userId == post?.AuthorId;
     }
 
+    private bool IsAdmin(ClaimsPrincipal user)
+    {
+        return user.IsInRole("Admin");
+    }
+
     private async Task DeletePost()
     {
         if (post == null || string.IsNullOrEmpty(currentUserId)) return;
@@ -56,6 +61,32 @@ public partial class Detail
         try
         {
             var success = await PostService.DeletePostAsync(post.Id, currentUserId);
+            if (success)
+            {
+                Navigation.NavigateTo("/posts");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "投稿の削除に失敗しました。");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"エラーが発生しました: {ex.Message}");
+        }
+    }
+
+    private async Task DeletePostAsAdmin()
+    {
+        if (post == null) return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "管理者権限でこの投稿を削除しますか？この操作は取り消せません。");
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await PostService.DeletePostAsAdminAsync(post.Id);
             if (success)
             {
                 Navigation.NavigateTo("/posts");
