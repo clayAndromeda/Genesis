@@ -1,12 +1,5 @@
 @page "/posts/create"
-@using Genesis.Echos.Domain.Entities
-@using Genesis.Echos.Main.Services
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
-@using System.Security.Claims
-@inject PostService PostService
-@inject NavigationManager Navigation
-@inject AuthenticationStateProvider AuthenticationStateProvider
 @attribute [Authorize]
 @rendermode InteractiveServer
 
@@ -61,61 +54,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    private PostModel model = new();
-    private bool isSubmitting = false;
-    private string? errorMessage;
-
-    private async Task HandleValidSubmit()
-    {
-        try
-        {
-            isSubmitting = true;
-            errorMessage = null;
-
-            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (string.IsNullOrEmpty(userId))
-            {
-                errorMessage = "ユーザー情報を取得できませんでした。";
-                return;
-            }
-
-            var post = new Post
-            {
-                Title = model.Title,
-                Content = model.Content,
-                AuthorId = userId
-            };
-
-            await PostService.CreatePostAsync(post);
-            Navigation.NavigateTo("/posts");
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"投稿の作成中にエラーが発生しました: {ex.Message}";
-        }
-        finally
-        {
-            isSubmitting = false;
-        }
-    }
-
-    private void Cancel()
-    {
-        Navigation.NavigateTo("/posts");
-    }
-
-    public class PostModel
-    {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "タイトルは必須です")]
-        [System.ComponentModel.DataAnnotations.StringLength(200, ErrorMessage = "タイトルは200文字以内で入力してください")]
-        public string Title { get; set; } = string.Empty;
-
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "本文は必須です")]
-        [System.ComponentModel.DataAnnotations.StringLength(5000, ErrorMessage = "本文は5000文字以内で入力してください")]
-        public string Content { get; set; } = string.Empty;
-    }
-}

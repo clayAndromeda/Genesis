@@ -6,12 +6,12 @@ namespace Genesis.Echos.Main.Services;
 
 public class PostService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<PostService> _logger;
 
-    public PostService(ApplicationDbContext context, ILogger<PostService> logger)
+    public PostService(IServiceScopeFactory scopeFactory, ILogger<PostService> logger)
     {
-        _context = context;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -22,7 +22,9 @@ public class PostService
     {
         try
         {
-            return await _context.Posts
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return await context.Posts
                 .Include(p => p.Author)
                 .Include(p => p.Likes)
                 .OrderByDescending(p => p.CreatedAt)
@@ -42,7 +44,9 @@ public class PostService
     {
         try
         {
-            return await _context.Posts
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return await context.Posts
                 .Include(p => p.Author)
                 .Include(p => p.Likes)
                 .ThenInclude(l => l.User)
@@ -64,9 +68,11 @@ public class PostService
     {
         try
         {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             post.CreatedAt = DateTime.UtcNow;
-            _context.Posts.Add(post);
-            await _context.SaveChangesAsync();
+            context.Posts.Add(post);
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Created post {PostId} by user {UserId}", post.Id, post.AuthorId);
             return post;
@@ -85,7 +91,9 @@ public class PostService
     {
         try
         {
-            var existingPost = await _context.Posts.FindAsync(post.Id);
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var existingPost = await context.Posts.FindAsync(post.Id);
             if (existingPost == null)
             {
                 _logger.LogWarning("Post {PostId} not found", post.Id);
@@ -104,7 +112,7 @@ public class PostService
             existingPost.Content = post.Content;
             existingPost.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            await context.SaveChangesAsync();
             _logger.LogInformation("Updated post {PostId}", post.Id);
             return true;
         }
@@ -122,7 +130,9 @@ public class PostService
     {
         try
         {
-            var post = await _context.Posts.FindAsync(id);
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var post = await context.Posts.FindAsync(id);
             if (post == null)
             {
                 _logger.LogWarning("Post {PostId} not found", id);
@@ -137,8 +147,8 @@ public class PostService
                 return false;
             }
 
-            _context.Posts.Remove(post);
-            await _context.SaveChangesAsync();
+            context.Posts.Remove(post);
+            await context.SaveChangesAsync();
 
             _logger.LogInformation("Deleted post {PostId}", id);
             return true;
@@ -157,14 +167,16 @@ public class PostService
     {
         try
         {
-            var existingLike = await _context.Likes
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var existingLike = await context.Likes
                 .FirstOrDefaultAsync(l => l.PostId == postId && l.UserId == userId);
 
             if (existingLike != null)
             {
                 // いいねを削除
-                _context.Likes.Remove(existingLike);
-                await _context.SaveChangesAsync();
+                context.Likes.Remove(existingLike);
+                await context.SaveChangesAsync();
                 _logger.LogInformation("User {UserId} unliked post {PostId}", userId, postId);
                 return false; // いいねが削除された
             }
@@ -177,8 +189,8 @@ public class PostService
                     UserId = userId,
                     CreatedAt = DateTime.UtcNow
                 };
-                _context.Likes.Add(like);
-                await _context.SaveChangesAsync();
+                context.Likes.Add(like);
+                await context.SaveChangesAsync();
                 _logger.LogInformation("User {UserId} liked post {PostId}", userId, postId);
                 return true; // いいねが追加された
             }
@@ -197,7 +209,9 @@ public class PostService
     {
         try
         {
-            return await _context.Likes
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return await context.Likes
                 .AnyAsync(l => l.PostId == postId && l.UserId == userId);
         }
         catch (Exception ex)

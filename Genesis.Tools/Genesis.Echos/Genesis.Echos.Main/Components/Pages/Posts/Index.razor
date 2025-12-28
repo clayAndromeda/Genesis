@@ -1,8 +1,4 @@
 @page "/posts"
-@using Genesis.Echos.Domain.Entities
-@using Genesis.Echos.Main.Services
-@inject PostService PostService
-@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>投稿一覧 - Genesis.Echos</PageTitle>
@@ -63,25 +59,3 @@
         </div>
     }
 </div>
-
-@code {
-    private List<Post>? posts;
-    private bool isLoading = true;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            posts = await PostService.GetAllPostsAsync();
-        }
-        catch (Exception ex)
-        {
-            // TODO: エラーハンドリング
-            Console.WriteLine($"Error loading posts: {ex.Message}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-}

@@ -1,8 +1,4 @@
 @page "/Account/Logout"
-@using Genesis.Echos.Domain.Entities
-@using Microsoft.AspNetCore.Identity
-@inject SignInManager<ApplicationUser> SignInManager
-@inject NavigationManager Navigation
 
 <PageTitle>ログアウト - Genesis.Echos</PageTitle>
 
@@ -29,17 +25,3 @@
         </div>
     </div>
 </div>
-
-@code {
-    private bool isLoggingOut = true;
-
-    protected override async Task OnInitializedAsync()
-    {
-        await SignInManager.SignOutAsync();
-        isLoggingOut = false;
-
-        // 2秒後にホームページにリダイレクト
-        await Task.Delay(2000);
-        Navigation.NavigateTo("/", forceLoad: true);
-    }
-}
